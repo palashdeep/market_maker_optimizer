@@ -1,11 +1,12 @@
 import numpy as np
 
 class MarketMakerAdv():
-    def __init__(self, lam=0.94, sigma=0.02, slippage=0.01, eta=0.0005):
+    def __init__(self, lam=0.94, sigma=0.02, slippage=0.1, eta=0.05):
         self.lam = lam       # EWMA decay factor
         self.sigma2_ewma = sigma**2  # initial variance guess
         self.gamma = slippage     # slippage per unit hedged
         self.eta = eta           # market impact per unit hedged
+        self.max_shift = 5      # max bid/ask shift due to inventory
         self.total_spread_revenue = 0.0    # revenue earned from client trades
         self.total_hedge_cost = 0.0        # cost incurred by external hedges
         self.total_hedge_volume = 0
@@ -24,19 +25,20 @@ class MarketMakerAdv():
         self.spreads.append(spread)
         return spread
 
-    def trade(self, mid, spread, side, alpha, inv, c):
+    def trade(self, mid, spread, side, size, alpha, inv, c):
         """Executes a trade and updates inventory and cash"""
-
+        skew = np.clip(-alpha * inv, -self.max_shift, self.max_shift) # inventory penalty on price
         if side == "buy":
             # client buys from MM at ask
-            inv -= 1
-            c = mid + spread/2 + alpha*inv  # inventory penalty on price
+            c += (mid + spread/2 + skew) * size  
+            inv -= size
+            self.total_spread_revenue += (spread/2 + skew) * size
         else:
             # client sells to MM at bid
-            inv += 1
-            c = - (mid - spread/2 + alpha*inv)
+            c -= (mid - spread/2 + skew) * size
+            inv += size
+            self.total_spread_revenue += (spread/2 - skew) * size
         
-        self.total_spread_revenue += (spread/2 + alpha*inv)
         self.inventory.append(inv)
         self.cash.append(c)
         
@@ -50,11 +52,11 @@ class MarketMakerAdv():
             # execution price -> (mid + sign * (slippage + impact * size))
             exec_price = mid + np.sign(hedge_units) * (self.gamma + self.eta * abs(hedge_units))
             inv += hedge_units
-            c =- exec_price * hedge_units
-            # hedge cost = (exec_price - mid) * abs(hedge_units) + fee_component
-            self.total_hedge_cost += (exec_price - mid) * abs(hedge_units)
+            c -= exec_price * hedge_units
+            # hedge cost = abs(exec_price - mid) * abs(hedge_units) + fee_component
+            self.total_hedge_cost += abs(exec_price - mid) * abs(hedge_units)
             self.total_hedge_volume += abs(hedge_units)
-            num_hedges += 1
+            self.num_hedges += 1
         
         self.inventory.append(inv)
         self.cash.append(c)

@@ -31,7 +31,8 @@ def simulate_market(data, mm, k, alpha, hedge_threshold, hedge_size):
         # Order arrivals
         if np.random.rand() < order_prob:
             side = np.random.choice(["buy", "sell"])
-            c, inv = mm.trade(mid, spread, side, alpha, inv, c) # mm trades at quoted price
+            size = np.random.randint(1, 5)  # random order size between 1 and 99
+            c, inv = mm.trade(mid, spread, side, size, alpha, inv, c) # mm trades at quoted price
         
         # Hedging
         c, inv = mm.hedge(t, mid, inv, c, hedge_threshold, hedge_size)
@@ -63,3 +64,19 @@ def evaluate(params, all_data):
         "mean_inv": float(np.mean(invs)),
         "mean_hedge_cost": float(np.mean(hedge_costs))
     }
+
+def evaluate_oos(params, all_data):
+    k, alpha, hedge_threshold, hedge_size = params
+    pnls, invs, hedge_costs = [], [], []
+    for data in all_data:
+        mm = MarketMakerAdv() # initialise with default params
+        out = simulate_market(data, mm, k, alpha, hedge_threshold, hedge_size)
+        pnls.append(out['net_pnl'])
+        invs.append(out['inv_vol'])
+        hedge_costs.append(out['total_hedge_cost'])
+    return {
+        "mean_pnl": float(np.mean(pnls)),
+        "std_pnl": float(np.std(pnls)),
+        "mean_inv": float(np.mean(invs)),
+        "mean_hedge_cost": float(np.mean(hedge_costs))
+    }, pnls
