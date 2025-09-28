@@ -7,7 +7,7 @@ from pymoo.core.problem import ElementwiseProblem
 from market_simulator import generate_data, simulate_market, evaluate
 
 
-seeds = [37 + 3*i for i in range(10)]
+seeds = [37 + 3*i for i in range(20)]
 all_data = [generate_data(T=1000, seed=s) for s in seeds]
 hedge_cost_cap = 50.0   # example cap (same units as price*units)
 
