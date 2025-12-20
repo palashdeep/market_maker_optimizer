@@ -4,27 +4,29 @@ from pymoo.optimize import minimize
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.problem import ElementwiseProblem
 
-from market_simulator import generate_data, simulate_market, evaluate
+from market_simulator import generate_data, evaluate
 
 
-seeds = [37 + 3*i for i in range(20)]
+seeds = [37 + 3*i for i in range(50)]
 all_data = [generate_data(T=1000, seed=s) for s in seeds]
 hedge_cost_cap = 50.0   # example cap (same units as price*units)
 
 # Fine optimization using NSGA-II and constraint on hedge cost
 class MMProblem(ElementwiseProblem):
-    def __init__(self, all_data, hedge_cost_cap):
+    def __init__(self, all_data, hedge_cost_cap, var_cap):
         # x = [k, alpha, hedge_threshold, hedge_size]
-        super().__init__(n_var=4, n_obj=2, n_constr=1,
+        super().__init__(n_var=4, n_obj=2, n_constr=2,
                          xl=np.array([0.1, 0.0, 1.0, 1.0]),
                          xu=np.array([5.0, 2.0, 200.0, 200.0]))
         self.all_data = all_data
         self.hedge_cost_cap = hedge_cost_cap
+        self.var_cap = var_cap
 
     def _evaluate(self, x, out, *args, **kwargs):
         k, alpha, hedge_threshold, hedge_size = x
         stats = evaluate((k, alpha, hedge_threshold, hedge_size), self.all_data)
         mean_pnl = stats["mean_pnl"]
+        var_pnl = stats["var_final_pnl"]
         mean_inv = stats["mean_inv"]
         mean_hedge_cost = stats["mean_hedge_cost"]
 
@@ -32,7 +34,7 @@ class MMProblem(ElementwiseProblem):
         # We want to maximize PnL → minimize -mean_pnl
         out["F"] = [-mean_pnl, mean_inv]
         # Constraint: mean_hedge_cost <= hedge_cost_cap  =>  g = mean_hedge_cost - cap  <= 0
-        out["G"] = [mean_hedge_cost - self.hedge_cost_cap]
+        out["G"] = [mean_hedge_cost - self.hedge_cost_cap, var_pnl - self.var_cap]
 
 # Run NSGA-II
 problem = MMProblem(all_data, hedge_cost_cap)
