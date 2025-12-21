@@ -8,7 +8,7 @@ Rather than optimizing for raw PnL - which is dominated by mark-to-market noise 
 
 The core question I try to answer is:
 
-> Which quoting and hedging behaviors remain profitable across many stochastic paths, not just a single realization?
+> **Which quoting and hedging behaviors remain profitable across many stochastic paths, not just a single realization?**
 
 ## Model Summary
 
